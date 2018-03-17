@@ -69,6 +69,7 @@ void mainLoop(){
 		if(strcmp(commandStr,"")==0) break;
 		Command command;
 		analyseCommand(commandStr,command);
+		
 	}
 	
 }
@@ -76,6 +77,39 @@ void mainLoop(){
 void analyseCommand(char commandStr[], Command &command){
 	/*传入一个字符串和一个指令结构体的引用。 
 	在该结构体内存储解析结果。*/
+	for(int i=0;true;i++){
+		char c=commandStr[i];
+		if(c==0) return;
+		if(c=='-'){
+			i++;
+			c=commandStr[i];
+			if(c=='c') {command._c=true; continue;}
+			else if(c=='w') {command._w=true; continue;}
+			else if(c=='l') {command._l=true; continue;}
+			else if(c=='s') {command._s=true; continue;}
+			else if(c=='a') {command._a=true; continue;}
+			else if(c=='e') command._e=true;
+			else if(c=='o') command._o=true;
+			else continue;	
+			i+=2;	//跳过一个空格以后开始读取文件路径
+					//这个i++语句只有-e和-o会执行到 
+		}
+		if(c==' ') continue;
+		
+		char path[MAX_PATH_LENGTH]="";
+		for(int j=0;true;j++){
+			char ch=commandStr[i];
+			if(ch==0){i--; break;}
+			/*由于大循环每次i++，这里到了命令末尾
+			所以要先i--才能让程序判断出这里是命令末尾*/ 
+			if(ch==' ') break;
+			path[j]=ch;
+			i++;
+		}
+		if(c=='e') strcpy(command.stopFile, path);
+		else if(c=='o') strcpy(command.outFile, path);
+		else strcpy(command.filePath, path);
+	}
 	return;
 }
 
