@@ -5,6 +5,7 @@
 using namespace std;
 
 #define	MAX_COM_LENGTH			50
+#define MAX_WORD_LENGTH			20
 #define	MAX_PATH_LENGTH			80
 #define MAX_STOPWORD_LENGTH		20
 
@@ -114,6 +115,8 @@ void mainLoop(){
 		
 		wordCount(head,command.stopFile);
 		
+		outPut(head,command);
+		
 		delete head;
 	}
 	
@@ -203,12 +206,15 @@ void wordCount(SourceFile *sourceFile, StopWord *head){
     ifstream in;
     in.open(sourceFile->filePath);
     
-    bool wordFlag=false;	//是否处于单词内部 
-    bool longNote=false;	//是否处于长段注释 
-    int state=1;		//当前行的状态 
-    bool hasPassState2=false;	//当前行已不可能成为空行 
+    bool wordFlag=false;					//是否处于单词内部 
+    bool longNote=false;					//是否处于长段注释 
+    int state=1;							//当前行的状态 
+    bool hasPassState2=false;				//当前行已不可能成为空行 
+    char currentWord[MAX_WORD_LENGTH]="";	//记录当前的单词 
+    int wordPosition=0;						//记录当前游标处在单词的第几个字母 
     
-    while ((c = in.get()) != EOF)
+    
+    while (true)
     {
     	c = in.get();
     	if(c==EOF){
@@ -230,6 +236,17 @@ void wordCount(SourceFile *sourceFile, StopWord *head){
 				else sourceFile->blankLineNum++;
 			}
 			if(state==6||state==7||state==8) sourceFile->noteLineNum++;
+			
+			if(strcmp(currentWord,"")!=0){
+				StopWord *pH=head->next;
+				while(pH!=NULL){
+					if(strcmp(currentWord,pH->word)==0){
+						sourceFile->wordNum--;
+						break;
+					}
+					pH=pH->next;
+				}
+			}
 			break;
 		}
 		
@@ -239,6 +256,25 @@ void wordCount(SourceFile *sourceFile, StopWord *head){
         bool separator=(c==' '||c==','||c=='\n'||c=='\t');
         if(wordFlag&&separator) sourceFile->wordNum++;
         wordFlag=!separator;
+        if(wordFlag){
+        	currentWord[wordPosition]=c;
+        	wordPosition++;
+        	currentWord[wordPosition]=0;
+		}
+		if(!wordFlag){
+			wordPosition=0;
+			if(strcmp(currentWord,"")!=0){
+				StopWord *pH=head->next;
+				while(pH!=NULL){
+					if(strcmp(currentWord,pH->word)==0){
+						sourceFile->wordNum--;
+						break;
+					}
+					pH=pH->next;
+				}
+			}
+		}
+		
         //总行数
         if(state==1){
         	if(c=='\n'){
@@ -330,6 +366,12 @@ void wordCount(SourceFile *sourceFile, StopWord *head){
 void outPut(SourceFile *head, Command &command){
 	/*给定文件结构体的头指针和指令结构体的引用，依次按格式输出结果。
 	按照字符'单词'行数'代码行数/空行数/注释行的顺序，依次分行显示。*/
+	SourceFile *p=head->next;
+	while(p!=NULL){
+		//file1.c, 单词数: 50
+		cout<<p->filePath<<", 单词数: "<<p->wordNum<<endl;
+		p=p->next;
+	}
 }
 
 int WildCharMatch(char *src, char *pattern, int ignore_case)
