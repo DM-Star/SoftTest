@@ -1,10 +1,12 @@
 #include<iostream>
 #include<cstring>
 #include<vector>
+#include <fstream>
 using namespace std;
 
-#define	MAX_COM_LENGTH	50
-#define	MAX_PATH_LENGTH	80
+#define	MAX_COM_LENGTH			50
+#define	MAX_PATH_LENGTH			80
+#define MAX_STOPWORD_LENGTH		20
 
 struct Command{
 	bool _c;		//是否统计字符数
@@ -36,16 +38,33 @@ struct SourceFile{
 	int charNum;
 	int wordNum;
 	int lineNum;
+	int blankLineNum;
+	int codeLineNum;
+	int noteLineNum;
 	SourceFile *next;
 	SourceFile(){
 		strcpy(filePath,"");		//路径用于寻找文件、输出最后的文件名 
 		strcpy(fileName,"");		//文件名用于进行通配符匹配 
 		charNum=0;
 		wordNum=0;
-		lineNum=0;
+		lineNum=1;
+		blankLineNum=0;
+		codeLineNum=0;
+		noteLineNum=0;
 		next=NULL;
 	}
 	~SourceFile(){
+		delete next;
+	}
+};
+struct StopWord{
+	char word[MAX_STOPWORD_LENGTH];
+	StopWord *next;
+	StopWord(){
+		strcpy(word,"");
+		next=NULL;
+	}
+	~StopWord(){
 		delete next;
 	}
 };
@@ -54,7 +73,7 @@ void mainLoop();
 void analyseCommand(char commandStr[], Command &command);
 void getFileName(char filePath[], SourceFile *head);
 void wordCount(SourceFile *head, char stopPath[]);
-void wordCount(SourceFile *sourceFile, vector<string> &stopWords);
+void wordCount(SourceFile *sourceFile, StopWord *head);
 void outPut(SourceFile *head, Command &command);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -93,12 +112,7 @@ void mainLoop(){
 		
 		getFileName(command.filePath, head);
 		
-		SourceFile *p=head->next;
-		while(p!=NULL){
-			cout<<p->fileName<<endl;
-			cout<<p->filePath<<endl<<endl;
-			p=p->next;
-		}
+		wordCount(head,command.stopFile);
 		
 		delete head;
 	}
@@ -157,11 +171,159 @@ void getFileName(char filePath[], SourceFile *head){
 
 void wordCount(SourceFile *head, char stopPath[]){
 	/*首先遍历停用词表，构建停用词结构体。 
-	依次使用每一个源文件结构体和停用词向量进行具体的统计。*/
+	依次使用每一个源文件结构体和停用词链表进行具体的统计。*/
+	StopWord *sHead=new StopWord();
+	
+	ifstream in(stopPath); 
+    string line;  
+    if(in)
+    {  
+        while (getline (in, line)) 
+        {   
+            StopWord *pS=new StopWord();
+            pS->next=sHead->next;
+            strcpy(pS->word,line.c_str());
+            sHead->next=pS;
+        }  
+    }
+    in.close();
+    
+    SourceFile *p=head->next;
+    while(p!=NULL){
+    	wordCount(p,sHead);
+    	p=p->next;
+	}
+    
+    delete sHead;
 }
 
-void wordCount(SourceFile *sourceFile, vector<string> &stopWords){
-	//遍历文件内容，进行统计，并将结果保存在sourceFile中 
+void wordCount(SourceFile *sourceFile, StopWord *head){
+	//遍历文件内容，进行统计，并将结果保存在sourceFile中
+	char c;
+    ifstream in;
+    in.open(sourceFile->filePath);
+    
+    bool wordFlag=false;	//是否处于单词内部 
+    bool longNote=false;	//是否处于长段注释 
+    int state=1;		//当前行的状态 
+    bool hasPassState2=false;	//当前行已不可能成为空行 
+    
+    while ((c = in.get()) != EOF)
+    {
+    	c = in.get();
+    	if(c==EOF){
+    		if(wordFlag){
+    			sourceFile->wordNum++;
+			}
+			sourceFile->lineNum++;
+			if(state==1) {
+				if(hasPassState2) sourceFile->noteLineNum++;
+				else sourceFile->blankLineNum++;
+			}
+			if(state==2) {
+				if(hasPassState2) sourceFile->noteLineNum++;
+				else sourceFile->blankLineNum++;
+			}
+			if(state==3) sourceFile->codeLineNum++;
+			if(state==5) {
+				if(hasPassState2) sourceFile->codeLineNum++;
+				else sourceFile->blankLineNum++;
+			}
+			if(state==6||state==7||state==8) sourceFile->noteLineNum++;
+			break;
+		}
+		
+		//字符数 
+        sourceFile->charNum++;
+        //单词数（尚未加入停用词表） 
+        bool separator=(c==' '||c==','||c=='\n'||c=='\t');
+        if(wordFlag&&separator) sourceFile->wordNum++;
+        wordFlag=!separator;
+        //总行数
+        if(state==1){
+        	if(c=='\n'){
+				sourceFile->lineNum++;
+				if(hasPassState2) sourceFile->noteLineNum++;
+				else sourceFile->blankLineNum++;
+				hasPassState2=false;
+			}
+			else if(c=='/') state=5;
+			else if(c!=' '&&c!='\t'){state=2;}
+		}
+		else if(state==2){
+			if(c=='\n'){
+				state=1;
+				sourceFile->lineNum++;
+				if(hasPassState2) sourceFile->noteLineNum++;
+				else sourceFile->blankLineNum++;
+				hasPassState2=false;
+			}
+			else if(c=='/') {
+				state=5;
+				hasPassState2=true;
+			}
+			else if(c!=' '&&c!='\t'){
+				state=3;
+				hasPassState2=true;
+			}
+		}
+		else if(state==3){		//这里其实有一些问题，以后再改 
+			if(c=='\n'){
+				state=1;
+				sourceFile->lineNum++;
+				sourceFile->codeLineNum++;
+				hasPassState2=false;
+			}
+		}
+		else if(state==5){
+			if(c=='\n'){
+				state=1;
+				sourceFile->lineNum++;
+				if(hasPassState2) sourceFile->codeLineNum++;
+				else sourceFile->blankLineNum++;
+				hasPassState2=false;
+			}
+			else if(c=='/')state=6;
+			else if(c=='*'){
+				state=7;
+				longNote=true;
+			}
+			else state=3;
+		}
+		else if(state==6){
+			if(c=='\n'){
+				state=1;
+				sourceFile->lineNum++;
+				sourceFile->noteLineNum++;
+				hasPassState2=false;
+			}
+		}
+		else if(state==7){
+			if(c=='\n'){
+				state=7;
+				sourceFile->lineNum++;
+				sourceFile->noteLineNum++;
+				hasPassState2=false;
+			}
+			else if(c=='*') state=8;
+		}
+		else if(state==8){
+			if(c=='\n'){
+				state=7;
+				sourceFile->lineNum++;
+				sourceFile->noteLineNum++;
+				hasPassState2=false;
+			}
+			else if(c=='*') state=8;
+			else if(c=='/'){
+				state=1;
+				longNote=false;
+				hasPassState2=true;
+			}
+			else state=7;
+		}
+    }
+    in.close();
 	return;
 }
 
