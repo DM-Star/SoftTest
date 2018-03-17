@@ -4,7 +4,7 @@
 using namespace std;
 
 #define	MAX_COM_LENGTH	50
-#define	MAX_PATH_LENGTH	50
+#define	MAX_PATH_LENGTH	80
 
 struct Command{
 	bool _c;		//是否统计字符数
@@ -45,6 +45,9 @@ struct SourceFile{
 		lineNum=0;
 		next=NULL;
 	}
+	~SourceFile(){
+		delete next;
+	}
 };
 
 void mainLoop();
@@ -53,6 +56,21 @@ void getFileName(char filePath[], SourceFile *head);
 void wordCount(SourceFile *head, char stopPath[]);
 void wordCount(SourceFile *sourceFile, vector<string> &stopWords);
 void outPut(SourceFile *head, Command &command);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//本段为递归查找目录函数 
+#include<io.h>
+void getFiles(string path, string path2, SourceFile *head, char* pattern);
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//本段为引用的字符串匹配（带通配符）函数 
+#include <ctype.h>
+/** Defines and Macros */
+#define MATCH      1
+#define NOT_MATCH  0
+/* 匹配一个字符的宏 */
+#define MATCH_CHAR(c1,c2,ignore_case)  ( (c1==c2) || ((ignore_case==1) &&(tolower(c1)==tolower(c2))) )
+int WildCharMatch(char *src, char *pattern, int ignore_case);
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int main(){
 	mainLoop();
@@ -67,9 +85,22 @@ void mainLoop(){
 	while(true){
 		gets(commandStr);
 		if(strcmp(commandStr,"")==0) break;
+		
+		SourceFile *head=new SourceFile();
+		
 		Command command;
 		analyseCommand(commandStr,command);
 		
+		getFileName(command.filePath, head);
+		
+		SourceFile *p=head->next;
+		while(p!=NULL){
+			cout<<p->fileName<<endl;
+			cout<<p->filePath<<endl<<endl;
+			p=p->next;
+		}
+		
+		delete head;
 	}
 	
 }
@@ -114,7 +145,13 @@ void analyseCommand(char commandStr[], Command &command){
 }
 
 void getFileName(char filePath[], SourceFile *head){
-	//给定文件路径和头指针，得到指定路径下所有符合条件的文件名。 
+	//给定文件路径和头指针，得到指定路径下所有符合条件的文件名。
+	char   buffer[MAX_PATH_LENGTH];   
+	getcwd(buffer, MAX_PATH_LENGTH); 
+	string path;
+	path.assign(buffer).append("\\");
+	//获取该路径下的所有文件  
+	getFiles(path,"", head,filePath);
 	return;
 }
 
@@ -133,3 +170,103 @@ void outPut(SourceFile *head, Command &command){
 	按照字符'单词'行数'代码行数/空行数/注释行的顺序，依次分行显示。*/
 }
 
+int WildCharMatch(char *src, char *pattern, int ignore_case)
+{
+        int result;
+
+        while (*src)
+          {
+                if (*pattern == '*')
+                    {   /* 如果 pattern 的当前字符是 '*' */
+                     /* 如果后续有多个 '*', 跳过 */
+                        while ((*pattern == '*') || (*pattern == '?'))
+                              pattern++;
+                              
+                        /* 如果 '*" 后没有字符了，则正确匹配 */
+                        if (!*pattern) return MATCH;
+
+                        /* 在 src 中查找一个与 pattern中'*"后的一个字符相同的字符*/
+                        while (*src && (!MATCH_CHAR(*src,*pattern,ignore_case)))
+                              src++;
+                        
+                        /* 如果找不到，则匹配失败 */        
+                        if (!*src) return NOT_MATCH;
+
+                        /* 如果找到了，匹配剩下的字符串*/
+                        result = WildCharMatch (src, pattern, ignore_case);
+                        /* 如果剩下的字符串匹配不上，但src后一个字符等于pattern中'*"后的一个字符 */
+                        /* src前进一位，继续匹配 */
+                        while ( (!result) && (*(src+1)) && MATCH_CHAR(*(src+1),*pattern,ignore_case) )
+                           result = WildCharMatch (++src, pattern, ignore_case);
+
+                        return result;
+
+                    }
+                else
+                    {
+                     /* 如果pattern中当前字符不是 '*' */
+                     /* 匹配当前字符*/
+                        if ( MATCH_CHAR(*src,*pattern,ignore_case) || ('?' == *pattern))
+                          { 
+                            /* src,pattern分别前进一位，继续匹配 */
+                            return WildCharMatch (++src, ++pattern, ignore_case);
+                          }
+                        else
+                          {
+                             return NOT_MATCH;
+                          }
+                    }
+            }
+
+
+       /* 如果src结束了，看pattern有否结束*/       
+       if (*pattern)  
+         { 
+            /* pattern没有结束*/          
+           if ( (*pattern=='*') && (*(pattern+1)==0) ) /* 如果pattern有最后一位字符且是'*' */
+             return MATCH;
+           else
+             return NOT_MATCH;
+         }
+       else
+         return MATCH;
+}
+
+void getFiles(string path, string path2, SourceFile *head, char* pattern)  
+{  
+    //文件句柄  
+    long   hFile   =   0;  
+    //文件信息  
+    struct _finddata_t fileinfo;  
+    string p,p2;  
+    if((hFile = _findfirst(p.assign(path).append(path2).append("*").c_str(),&fileinfo)) !=  -1)  
+    {  
+        do  
+        {  
+            //如果是目录,迭代之  
+            //如果不是,加入列表  
+            if((fileinfo.attrib &  _A_SUBDIR))  
+            {  
+                if(strcmp(fileinfo.name,".") != 0  &&  strcmp(fileinfo.name,"..") != 0)  
+                    getFiles( p.assign(path).append("\\"),p2.assign(fileinfo.name).append("\\"), head,pattern);  
+            }  
+            else  
+            {
+				char fileName[MAX_PATH_LENGTH];
+				strcpy(fileName,p.assign(fileinfo.name).c_str());
+				char filePath[MAX_PATH_LENGTH];
+				strcpy(filePath,p.assign(path2).append(fileinfo.name).c_str());
+				
+				if(WildCharMatch(fileName, pattern, 1)||WildCharMatch(filePath, pattern, 1)){
+					SourceFile *pF = new SourceFile();
+					pF->next=head->next;
+					head->next=pF;
+					strcpy(pF->fileName,fileName);
+					strcpy(pF->filePath,filePath);
+				}
+				
+            }  
+        }while(_findnext(hFile, &fileinfo)  == 0);  
+        _findclose(hFile);  
+    }  
+}
