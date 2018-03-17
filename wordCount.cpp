@@ -221,7 +221,6 @@ void wordCount(SourceFile *sourceFile, StopWord *head){
     		if(wordFlag){
     			sourceFile->wordNum++;
 			}
-			sourceFile->lineNum++;
 			if(state==1) {
 				if(hasPassState2) sourceFile->noteLineNum++;
 				else sourceFile->blankLineNum++;
@@ -369,7 +368,18 @@ void outPut(SourceFile *head, Command &command){
 	SourceFile *p=head->next;
 	while(p!=NULL){
 		//file1.c, 单词数: 50
-		cout<<p->filePath<<", 单词数: "<<p->wordNum<<endl;
+		if(command._c)
+			cout<<p->filePath<<", 字符数: "<<p->charNum<<endl;
+		if(command._w)
+			cout<<p->filePath<<", 单词数: "<<p->wordNum<<endl;
+		if(command._l)
+			cout<<p->filePath<<", 行数: "<<p->lineNum<<endl;
+		if(command._a){
+			cout<<p->filePath<<", 代码行/空行/注释行: ";
+			cout<<p->codeLineNum<<'/';
+			cout<<p->blankLineNum<<'/';
+			cout<<p->noteLineNum<<endl;
+		}
 		p=p->next;
 	}
 }
