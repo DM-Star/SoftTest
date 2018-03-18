@@ -18,9 +18,9 @@ struct Command {
 	bool _s;		//是否递归处理目录下符合条件的所有文件
 	bool _a;		//是否统计代码行/空行/注释行
 	bool _e;		//是否开启停用词表
-	char filePath[MAX_PATH_LENGTH];
-	char outFile[MAX_PATH_LENGTH];
-	char stopFile[MAX_PATH_LENGTH];
+	char filePath[MAX_PATH_LENGTH];		//文件路径 
+	char outFile[MAX_PATH_LENGTH];		//输出结果路径 
+	char stopFile[MAX_PATH_LENGTH];		//停用词路径 
 	Command() {
 		_c = false;
 		_w = false;
@@ -71,12 +71,12 @@ struct StopWord {
 	}
 };
 
-void mainLoop();
-void analyseCommand(char commandStr[], Command &command);
-void getFileName(char filePath[], SourceFile *head);
-void wordCount(SourceFile *head, char stopPath[]);
-void wordCount(SourceFile *sourceFile, StopWord *head);
-void outPut(SourceFile *head, Command &command);
+void mainLoop();											//程序主循环 
+void analyseCommand(char commandStr[], Command &command);	//解析用户指令 
+void getFileName(char path[], SourceFile *head);			//递归得到目录下所有文件 
+void wordCount(SourceFile *head, char stopPath[]);			//单词统计的预备工作 
+void wordCount(SourceFile *sourceFile, StopWord *head);		//单词统计 
+void outPut(SourceFile *head, Command &command);			//向文本输出 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //本段为递归查找目录函数 
@@ -103,20 +103,26 @@ void mainLoop() {
 	cin之后解析用户指令，并根据解析用户指令的结果执行后续功能。
 	如果cin得到的是空字符串，则退出主循环。*/
 	char commandStr[MAX_COM_LENGTH] = "";
-	while (true) {
-		gets(commandStr);
-		if (strcmp(commandStr, "") == 0) break;
-
-		SourceFile *head = new SourceFile();
+	while (true) {											//循环处理用户请求 
+		gets(commandStr);									//获得用户指令 
+		if (strcmp(commandStr, "") == 0) break;					//如果是空指令，程序结束 
 
 		Command command;
-		analyseCommand(commandStr, command);
+		analyseCommand(commandStr, command);					//解析用户指令 
 
-		getFileName(command.filePath, head);
+		SourceFile *head = new SourceFile();
+		if (command._s) getFileName(command.filePath, head);	//递归寻找目录下的文件 
+		else {												//否则直接利用相对路径查找文件 
+			SourceFile *p = new SourceFile();
+			p->next = head->next;
+			head->next = p;
+			strcpy(p->fileName, command.filePath);
+			strcpy(p->filePath, command.filePath);
+		}
 
-		wordCount(head, command.stopFile);
+		wordCount(head, command.stopFile);					//统计单词数 
 
-		outPut(head, command);
+		outPut(head, command);								//结果输出到文件 
 
 		delete head;
 	}
@@ -129,7 +135,7 @@ void analyseCommand(char commandStr[], Command &command) {
 	for (int i = 0; true; i++) {
 		char c = commandStr[i];
 		if (c == 0) return;
-		if (c == '-') {
+		if (c == '-') {	//遇到'-'之后立即读取下一个字符，然后判断是何种指令，判断是否需要继续读取字符串 
 			i++;
 			c = commandStr[i];
 			if (c == 'c') { command._c = true; continue; }
@@ -162,14 +168,27 @@ void analyseCommand(char commandStr[], Command &command) {
 	return;
 }
 
-void getFileName(char filePath[], SourceFile *head) {
+void getFileName(char path[], SourceFile *head) {
 	//给定文件路径和头指针，得到指定路径下所有符合条件的文件名。
-	char   buffer[MAX_PATH_LENGTH];
-	getcwd(buffer, MAX_PATH_LENGTH);
-	string path;
-	path.assign(buffer).append("\\");
-	//获取该路径下的所有文件  
-	getFiles(path, "", head, filePath);
+	char filePath[MAX_PATH_LENGTH] = "";
+	char fileName[MAX_PATH_LENGTH] = "";
+	strcpy(filePath, path);
+	for (int i = MAX_PATH_LENGTH - 1; i >= 0; i--) {
+		if (filePath[i] == '\\') {	//从后向前寻找第一个'\\'以分割文件目录和文件名 
+			i++;
+			int j = 0;
+			for (; filePath[i + j] != 0; j++) {
+				fileName[j] = filePath[i + j];
+			}
+			fileName[j] = 0;
+			filePath[i] = 0;
+			break;
+		}
+	}
+	string p;
+	p.assign(filePath);
+	//获取该路径下的所有文件，并存入SourceFile链表中 
+	getFiles(p, "", head, fileName);
 	return;
 }
 
@@ -182,16 +201,8 @@ void wordCount(SourceFile *head, char stopPath[]) {
 	string line, word;
 	if (in)
 	{
-		/*while ( in.good() ){
-			in >> word ;
-			StopWord *pS=new StopWord();
-			pS->next=sHead->next;
-			strcpy(pS->word,word.c_str());
-			sHead->next=pS;
-		}*/
-
 		while (getline(in, line))
-		{
+		{   //读取停用词时，采用逐行读取、逐单词读取的方法 
 			istringstream istrm(line);
 			while (istrm >> word) {
 				StopWord *pS = new StopWord();
@@ -230,6 +241,7 @@ void wordCount(SourceFile *sourceFile, StopWord *head) {
 	{
 		c = in.get();
 		if (c == EOF) {
+			//在文件结尾处，还要对单词数、行数等进行最后的结算 
 			if (wordFlag) {
 				sourceFile->wordNum++;
 			}
@@ -263,31 +275,32 @@ void wordCount(SourceFile *sourceFile, StopWord *head) {
 
 		//字符数 
 		sourceFile->charNum++;
-		//单词数（尚未加入停用词表） 
-		bool separator = (c == ' ' || c == ',' || c == '\n' || c == '\t');
-		if (wordFlag&&separator) sourceFile->wordNum++;
+		//单词数 
+		bool separator = (c == ' ' || c == ',' || c == '\n' || c == '\t');	//这个变量表示当前字符是否属于分隔符 
+		if (wordFlag&&separator) sourceFile->wordNum++;		//如果字符由单词内字符变为分隔符，说明单词数+1 
 		wordFlag = !separator;
 		if (wordFlag) {
 			currentWord[wordPosition] = c;
 			wordPosition++;
-			currentWord[wordPosition] = 0;
+			currentWord[wordPosition] = 0;					//及时更新字符串停止标志 
 		}
-		if (!wordFlag) {
+		if (!wordFlag) {										//当一个单词读完以后，要判断停用词 
 			wordPosition = 0;
 			if (strcmp(currentWord, "") != 0) {
 				StopWord *pH = head->next;
-				while (pH != NULL) {
+				while (pH != NULL) {							//逐一对照停用词表进行判断 
 					if (strcmp(currentWord, pH->word) == 0) {
-						sourceFile->wordNum--;
+						sourceFile->wordNum--;				//如果属于停用词，单词数就要-1 
 						break;
 					}
 					pH = pH->next;
 				}
 			}
-			currentWord[wordPosition] = 0;
+			currentWord[wordPosition] = 0;					//这个语句是为了防止重复判断停用词 
 		}
 
-		//总行数
+		//总行数，包括代码行、注释行、空行 
+		//采用状态迁移模型，这段代码太烂了，功能基本实现了 
 		if (state == 1) {
 			if (c == '\n') {
 				sourceFile->lineNum++;
@@ -386,7 +399,7 @@ void outPut(SourceFile *head, Command &command) {
 
 	SourceFile *p = head->next;
 	while (p != NULL) {
-		//file1.c, 单词数: 50
+		//严格按照需求里面的顺序进行输出 
 		if (command._c)
 			cout << p->filePath << ", 字符数: " << p->charNum << endl;
 		if (command._w)
@@ -493,7 +506,7 @@ void getFiles(string path, string path2, SourceFile *head, char* pattern)
 				char filePath[MAX_PATH_LENGTH];
 				strcpy(filePath, p.assign(path2).append(fileinfo.name).c_str());
 
-				if (WildCharMatch(fileName, pattern, 1) || WildCharMatch(filePath, pattern, 1)) {
+				if (WildCharMatch(filePath, pattern, 1)) {
 					SourceFile *pF = new SourceFile();
 					pF->next = head->next;
 					head->next = pF;
