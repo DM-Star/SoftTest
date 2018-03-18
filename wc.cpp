@@ -5,7 +5,7 @@
 #include<sstream>
 using namespace std;
 
-#define	MAX_COM_LENGTH			50
+#define	MAX_COM_LENGTH			150
 #define MAX_WORD_LENGTH			100
 #define	MAX_PATH_LENGTH			80
 #define MAX_STOPWORD_LENGTH		20
@@ -274,7 +274,7 @@ void wordCount(SourceFile *sourceFile, StopWord *head) {
 		}
 
 		//字符数 
-		sourceFile->charNum++;
+		if (c != '\n') sourceFile->charNum++;
 		//单词数 
 		bool separator = (c == ' ' || c == ',' || c == '\n' || c == '\t');	//这个变量表示当前字符是否属于分隔符 
 		if (wordFlag&&separator) sourceFile->wordNum++;		//如果字符由单词内字符变为分隔符，说明单词数+1 
@@ -392,10 +392,9 @@ void outPut(SourceFile *head, Command &command) {
 	/*给定文件结构体的头指针和指令结构体的引用，依次按格式输出结果。
 	按照字符'单词'行数'代码行数/空行数/注释行的顺序，依次分行显示。*/
 
-	//输出重定向 
 	ofstream outf(command.outFile);
 	streambuf *default_buf = cout.rdbuf();
-	cout.rdbuf(outf.rdbuf());
+	if(command._o) cout.rdbuf(outf.rdbuf());		//输出重定向
 
 	SourceFile *p = head->next;
 	while (p != NULL) {
