@@ -274,7 +274,7 @@ void wordCount(SourceFile *sourceFile, StopWord *head) {
 		}
 
 		//字符数 
-		if (c != '\n') sourceFile->charNum++;
+		sourceFile->charNum++;
 		//单词数 
 		bool separator = (c == ' ' || c == ',' || c == '\n' || c == '\t');	//这个变量表示当前字符是否属于分隔符 
 		if (wordFlag&&separator) sourceFile->wordNum++;		//如果字符由单词内字符变为分隔符，说明单词数+1 
