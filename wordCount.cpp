@@ -2,10 +2,11 @@
 #include<cstring>
 #include<vector>
 #include <fstream>
+#include<sstream>
 using namespace std;
 
 #define	MAX_COM_LENGTH			50
-#define MAX_WORD_LENGTH			20
+#define MAX_WORD_LENGTH			100
 #define	MAX_PATH_LENGTH			80
 #define MAX_STOPWORD_LENGTH		20
 
@@ -178,16 +179,27 @@ void wordCount(SourceFile *head, char stopPath[]){
 	StopWord *sHead=new StopWord();
 	
 	ifstream in(stopPath); 
-    string line;  
+    string line,word;
     if(in)
     {  
+    	/*while ( in.good() ){
+    		in >> word ;
+    		StopWord *pS=new StopWord();
+           	pS->next=sHead->next;
+           	strcpy(pS->word,word.c_str());
+            sHead->next=pS;
+		}*/
+			
         while (getline (in, line)) 
         {   
-            StopWord *pS=new StopWord();
-            pS->next=sHead->next;
-            strcpy(pS->word,line.c_str());
-            sHead->next=pS;
-        }  
+        	istringstream istrm(line);
+			while(istrm>>word){
+            	StopWord *pS=new StopWord();
+            	pS->next=sHead->next;
+            	strcpy(pS->word,word.c_str());
+            	sHead->next=pS;
+            }
+        }
     }
     in.close();
     
@@ -272,6 +284,7 @@ void wordCount(SourceFile *sourceFile, StopWord *head){
 					pH=pH->next;
 				}
 			}
+			currentWord[wordPosition]=0;
 		}
 		
         //总行数
@@ -365,6 +378,12 @@ void wordCount(SourceFile *sourceFile, StopWord *head){
 void outPut(SourceFile *head, Command &command){
 	/*给定文件结构体的头指针和指令结构体的引用，依次按格式输出结果。
 	按照字符'单词'行数'代码行数/空行数/注释行的顺序，依次分行显示。*/
+	
+	//输出重定向 
+	ofstream outf(command.outFile); 
+	streambuf *default_buf=cout.rdbuf();   
+	cout.rdbuf( outf.rdbuf() );
+	
 	SourceFile *p=head->next;
 	while(p!=NULL){
 		//file1.c, 单词数: 50
@@ -382,6 +401,9 @@ void outPut(SourceFile *head, Command &command){
 		}
 		p=p->next;
 	}
+	
+	//恢复cout默认输出 
+	cout.rdbuf( default_buf );
 }
 
 int WildCharMatch(char *src, char *pattern, int ignore_case)
