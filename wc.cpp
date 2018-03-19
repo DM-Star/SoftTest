@@ -30,7 +30,7 @@ struct Command {
 		_a = false;
 		_e = false;
 		strcpy(filePath, "");
-		strcpy(outFile, "");
+		strcpy(outFile, "result.txt");	//将初始的结果文件设为result.txt 
 		strcpy(stopFile, "");
 	}
 };
@@ -71,7 +71,6 @@ struct StopWord {
 	}
 };
 
-void mainLoop();											//程序主循环 
 void analyseCommand(char commandStr[], Command &command);	//解析用户指令 
 void getFileName(char path[], SourceFile *head);			//递归得到目录下所有文件 
 void wordCount(SourceFile *head, char stopPath[]);			//单词统计的预备工作 
@@ -93,40 +92,33 @@ void getFiles(string path, string path2, SourceFile *head, char* pattern);
 int WildCharMatch(char *src, char *pattern, int ignore_case);
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-int main() {
-	mainLoop();
-	return 0;
-}
-
-void mainLoop() {
-	/*使用while循环反复执行cin.
-	cin之后解析用户指令，并根据解析用户指令的结果执行后续功能。
-	如果cin得到的是空字符串，则退出主循环。*/
+int main(int argc, char *argv[]) {
+	
 	char commandStr[MAX_COM_LENGTH] = "";
-	while (true) {											//循环处理用户请求 
-		gets(commandStr);									//获得用户指令 
-		if (strcmp(commandStr, "") == 0) break;					//如果是空指令，程序结束 
-
-		Command command;
-		analyseCommand(commandStr, command);					//解析用户指令 
-
-		SourceFile *head = new SourceFile();
-		if (command._s) getFileName(command.filePath, head);	//递归寻找目录下的文件 
-		else {												//否则直接利用相对路径查找文件 
-			SourceFile *p = new SourceFile();
-			p->next = head->next;
-			head->next = p;
-			strcpy(p->fileName, command.filePath);
-			strcpy(p->filePath, command.filePath);
-		}
-
-		wordCount(head, command.stopFile);					//统计单词数 
-
-		outPut(head, command);								//结果输出到文件 
-
-		delete head;
+	for(int i=1;i<argc;i++){		//将用户输入的指令拼接成一个完整的字符串传给程序 
+		strcat(commandStr, argv[i]);
+		strcat(commandStr, " ");
 	}
 
+	Command command;
+	analyseCommand(commandStr, command);					//解析用户指令 
+	
+	SourceFile *head = new SourceFile();
+	if (command._s) getFileName(command.filePath, head);	//递归寻找目录下的文件 
+	else {												//否则直接利用相对路径查找文件 
+		SourceFile *p = new SourceFile();
+		p->next = head->next;
+		head->next = p;
+		strcpy(p->fileName, command.filePath);
+		strcpy(p->filePath, command.filePath);
+	}
+
+	wordCount(head, command.stopFile);					//统计单词数 
+
+	outPut(head, command);								//结果输出到文件 
+
+	delete head;
+	return 0;
 }
 
 void analyseCommand(char commandStr[], Command &command) {
@@ -394,7 +386,7 @@ void outPut(SourceFile *head, Command &command) {
 
 	ofstream outf(command.outFile);
 	streambuf *default_buf = cout.rdbuf();
-	if(command._o) cout.rdbuf(outf.rdbuf());		//输出重定向
+	cout.rdbuf(outf.rdbuf());		//输出重定向
 
 	SourceFile *p = head->next;
 	while (p != NULL) {

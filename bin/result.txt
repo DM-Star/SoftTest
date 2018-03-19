@@ -1,0 +1,10 @@
+wordtest.c, 单词数: 16
+wordtest.c, 代码行/空行/注释行: 4/0/0
+stoptest.c, 单词数: 21
+stoptest.c, 代码行/空行/注释行: 6/3/0
+charwithspace.c, 单词数: 5
+charwithspace.c, 代码行/空行/注释行: 2/1/0
+char.c, 单词数: 2
+char.c, 代码行/空行/注释行: 1/0/0
+atest.c, 单词数: 29
+atest.c, 代码行/空行/注释行: 10/3/9
