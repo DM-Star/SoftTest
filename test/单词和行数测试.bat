@@ -1,0 +1,1 @@
+start wc.exe wc.exe -w -l wordtest.c

@@ -1,0 +1,1 @@
+start wc.exe wc.exe -e -c char.c

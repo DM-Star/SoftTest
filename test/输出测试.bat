@@ -1,0 +1,1 @@
+start wc.exe wc.exe -s -a -w -c -l .\*.c -o output.txt
